@@ -238,6 +238,34 @@ class TestEquality:
         assert sd != {"a": 1, "b": 2}
 
 
+class TestIterReversed:
+    def test_iter_returns_sorted_keys(self) -> None:
+        sd = SortedDict({"c": 3, "a": 1, "b": 2})
+        assert list(sd) == ["a", "b", "c"]
+
+    def test_iter_matches_keys_view(self) -> None:
+        sd = SortedDict({"c": 3, "a": 1, "b": 2})
+        assert list(sd) == list(sd.keys())
+
+    def test_reversed_returns_sorted_keys(self) -> None:
+        sd = SortedDict({"c": 3, "a": 1, "b": 2})
+        assert list(reversed(sd)) == ["c", "b", "a"]
+
+    def test_iter_with_key_function(self) -> None:
+        sd: SortedDict[int, str] = SortedDict(lambda k: -k, {1: "a", 3: "c", 2: "b"})
+        assert list(sd) == [3, 2, 1]
+        assert list(sd) == list(sd.keys())
+
+    def test_reversed_with_key_function(self) -> None:
+        sd: SortedDict[int, str] = SortedDict(lambda k: -k, {1: "a", 3: "c", 2: "b"})
+        assert list(reversed(sd)) == [1, 2, 3]
+
+    def test_for_loop_uses_sorted_order(self) -> None:
+        sd = SortedDict({"c": 3, "a": 1, "b": 2})
+        collected = [k for k in sd]
+        assert collected == ["a", "b", "c"]
+
+
 class TestKeyFunction:
     def test_key_function_ordering(self) -> None:
         sd: SortedDict[int, str] = SortedDict(lambda k: -k, {1: "a", 3: "c", 2: "b"})

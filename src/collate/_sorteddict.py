@@ -65,6 +65,14 @@ class SortedDict(dict[K, V]):
     def key(self) -> Callable[[K], Any] | None:
         return self._key_func
 
+    # ---- iteration ----
+
+    def __iter__(self) -> Iterator[K]:
+        return iter(self._keys)
+
+    def __reversed__(self) -> Iterator[K]:
+        return reversed(self._keys)
+
     # ---- dict overrides ----
 
     def __setitem__(self, key: K, value: V) -> None:
