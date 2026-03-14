@@ -9,7 +9,7 @@ from collate import SortedList
 
 class TestInit:
     def test_empty(self) -> None:
-        sl = SortedList()
+        sl: SortedList[int] = SortedList()
         assert len(sl) == 0
         assert list(sl) == []
 
@@ -126,7 +126,7 @@ class TestContains:
 
     def test_contains_wrong_type(self) -> None:
         sl = SortedList([1, 2, 3])
-        assert "a" not in sl  # type: ignore[operator]
+        assert "a" not in sl
 
 
 class TestLen:

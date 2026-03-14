@@ -9,15 +9,15 @@ from collate import SortedDict
 
 class TestInit:
     def test_empty(self) -> None:
-        sd = SortedDict()
+        sd: SortedDict[str, int] = SortedDict()
         assert len(sd) == 0
 
     def test_from_dict(self) -> None:
-        sd = SortedDict({"c": 3, "a": 1, "b": 2})
+        sd: SortedDict[str, int] = SortedDict({"c": 3, "a": 1, "b": 2})
         assert list(sd.keys()) == ["a", "b", "c"]
 
     def test_from_kwargs(self) -> None:
-        sd = SortedDict(c=3, a=1, b=2)
+        sd: SortedDict[str, int] = SortedDict(c=3, a=1, b=2)
         assert list(sd.keys()) == ["a", "b", "c"]
 
 

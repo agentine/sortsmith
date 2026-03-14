@@ -14,16 +14,16 @@ class TestInit:
 
     def test_requires_key(self) -> None:
         with pytest.raises(TypeError):
-            SortedKeyList([1, 2, 3])  # type: ignore[call-arg]
+            SortedKeyList([1, 2, 3])
 
     def test_empty(self) -> None:
-        skl = SortedKeyList(key=abs)
+        skl = SortedKeyList[int](key=abs)
         assert len(skl) == 0
 
 
 class TestAdd:
     def test_add_maintains_key_order(self) -> None:
-        skl = SortedKeyList(key=abs)
+        skl = SortedKeyList[int](key=abs)
         skl.add(-3)
         skl.add(1)
         skl.add(-2)
@@ -180,7 +180,7 @@ class TestCopy:
 
 class TestKeyProperty:
     def test_key(self) -> None:
-        skl = SortedKeyList(key=abs)
+        skl = SortedKeyList[int](key=abs)
         assert skl.key is abs
 
 

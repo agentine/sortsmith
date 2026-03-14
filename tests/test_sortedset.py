@@ -9,7 +9,7 @@ from collate import SortedSet
 
 class TestInit:
     def test_empty(self) -> None:
-        ss = SortedSet()
+        ss: SortedSet[int] = SortedSet()
         assert len(ss) == 0
 
     def test_from_iterable(self) -> None:

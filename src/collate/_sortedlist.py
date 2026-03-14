@@ -43,8 +43,12 @@ class SortedList(Generic[T]):
     # ---- Internal helpers ----
 
     def _build_index(self) -> None:
-        """Rebuild the positional index (prefix-sum of sublist lengths)."""
-        self._index = [len(sub) for sub in self._lists]
+        """Rebuild the positional index (cumulative prefix sums)."""
+        cum = 0
+        self._index = []
+        for sub in self._lists:
+            cum += len(sub)
+            self._index.append(cum)
 
     def _pos(self, idx: int) -> tuple[int, int]:
         """Convert a flat index to (list_index, sublist_index)."""
@@ -52,12 +56,18 @@ class SortedList(Generic[T]):
             raise IndexError("list index out of range")
         if not self._index:
             self._build_index()
-        pos = 0
-        for i, size in enumerate(self._index):
-            if idx < pos + size:
-                return i, idx - pos
-            pos += size
-        raise IndexError("list index out of range")  # pragma: no cover
+        # Binary search on cumulative sums.
+        i = bisect.bisect_right(self._index, idx)
+        if i >= len(self._index):
+            raise IndexError("list index out of range")  # pragma: no cover
+        offset = 0 if i == 0 else self._index[i - 1]
+        return i, idx - offset
+
+    def _offset(self, list_idx: int) -> int:
+        """Return the flat offset of the start of sublist at list_idx."""
+        if not self._index:
+            self._build_index()
+        return 0 if list_idx == 0 else self._index[list_idx - 1]
 
     def _expand(self, list_idx: int) -> None:
         """Split a sublist that has grown past 2*load."""
@@ -236,8 +246,7 @@ class SortedList(Generic[T]):
             return self._len
         sub = self._lists[pos]
         idx = bisect.bisect_left(sub, value)
-        # Count elements before this sublist.
-        return sum(len(self._lists[i]) for i in range(pos)) + idx
+        return self._offset(pos) + idx
 
     def bisect_right(self, value: T) -> int:
         """Return the index where *value* would be inserted (right)."""
@@ -248,7 +257,7 @@ class SortedList(Generic[T]):
             return self._len
         sub = self._lists[pos]
         idx = bisect.bisect_right(sub, value)
-        return sum(len(self._lists[i]) for i in range(pos)) + idx
+        return self._offset(pos) + idx
 
     bisect = bisect_right
 
@@ -405,21 +414,29 @@ class SortedKeyList(Generic[T]):
     """A sorted list that uses a key function for ordering.
 
     Elements are ordered by ``key(element)`` but stored as-is.
+    Uses a segmented list-of-lists for O(log n) insert/delete.
     """
 
-    __slots__ = ("_key", "_keys", "_list")
+    __slots__ = (
+        "_key", "_lists", "_key_lists", "_maxes", "_len", "_load", "_index",
+    )
 
     def __init__(
         self,
         iterable: Iterable[T] | None = None,
         *,
         key: Callable[[T], Any] | None = None,
+        _load: int = _DEFAULT_LOAD,
     ) -> None:
         if key is None:
             raise TypeError("SortedKeyList requires a key function")
         self._key: Callable[[T], Any] = key
-        self._keys: list[Any] = []
-        self._list: list[T] = []
+        self._load = _load
+        self._lists: list[list[T]] = []
+        self._key_lists: list[list[Any]] = []
+        self._maxes: list[Any] = []
+        self._len = 0
+        self._index: list[int] = []
         if iterable is not None:
             self.update(iterable)
 
@@ -429,52 +446,155 @@ class SortedKeyList(Generic[T]):
 
     # ---- Internal ----
 
-    def _rebuild_keys(self) -> None:
-        self._keys = [self._key(v) for v in self._list]
+    def _build_index(self) -> None:
+        cum = 0
+        self._index = []
+        for sub in self._lists:
+            cum += len(sub)
+            self._index.append(cum)
+
+    def _pos(self, idx: int) -> tuple[int, int]:
+        if idx < 0 or idx >= self._len:
+            raise IndexError("list index out of range")
+        if not self._index:
+            self._build_index()
+        i = bisect.bisect_right(self._index, idx)
+        if i >= len(self._index):
+            raise IndexError("list index out of range")  # pragma: no cover
+        offset = 0 if i == 0 else self._index[i - 1]
+        return i, idx - offset
+
+    def _offset(self, list_idx: int) -> int:
+        if not self._index:
+            self._build_index()
+        return 0 if list_idx == 0 else self._index[list_idx - 1]
+
+    def _expand(self, list_idx: int) -> None:
+        sub = self._lists[list_idx]
+        if len(sub) <= self._load * 2:
+            return
+        keys = self._key_lists[list_idx]
+        mid = len(sub) // 2
+        self._lists.insert(list_idx + 1, sub[mid:])
+        self._key_lists.insert(list_idx + 1, keys[mid:])
+        del sub[mid:]
+        del keys[mid:]
+        self._maxes[list_idx] = keys[-1]
+        self._maxes.insert(list_idx + 1, self._key_lists[list_idx + 1][-1])
+        self._index.clear()
+
+    def _delete(self, list_idx: int, sub_idx: int) -> T:
+        sub = self._lists[list_idx]
+        keys = self._key_lists[list_idx]
+        val = sub[sub_idx]
+        del sub[sub_idx]
+        del keys[sub_idx]
+        self._len -= 1
+        self._index.clear()
+        if sub:
+            self._maxes[list_idx] = keys[-1]
+        else:
+            del self._lists[list_idx]
+            del self._key_lists[list_idx]
+            del self._maxes[list_idx]
+        return val
 
     # ---- Mutation ----
 
     def add(self, value: T) -> None:
         k = self._key(value)
-        idx = bisect.bisect_right(self._keys, k)
-        self._keys.insert(idx, k)
-        self._list.insert(idx, value)
+        if not self._maxes:
+            self._lists.append([value])
+            self._key_lists.append([k])
+            self._maxes.append(k)
+            self._len += 1
+            self._index.clear()
+            return
+        pos = bisect.bisect_right(self._maxes, k)
+        if pos == len(self._maxes):
+            pos -= 1
+        keys = self._key_lists[pos]
+        idx = bisect.bisect_right(keys, k)
+        self._lists[pos].insert(idx, value)
+        keys.insert(idx, k)
+        self._maxes[pos] = keys[-1]
+        self._len += 1
+        self._index.clear()
+        self._expand(pos)
 
     def discard(self, value: T) -> None:
         k = self._key(value)
-        idx = bisect.bisect_left(self._keys, k)
-        while idx < len(self._keys) and self._keys[idx] == k:
-            if self._list[idx] == value:
-                del self._keys[idx]
-                del self._list[idx]
-                return
-            idx += 1
+        if not self._maxes:
+            return
+        pos = bisect.bisect_left(self._maxes, k)
+        if pos == len(self._maxes):
+            return
+        while pos < len(self._maxes):
+            keys = self._key_lists[pos]
+            idx = bisect.bisect_left(keys, k)
+            while idx < len(keys) and keys[idx] == k:
+                if self._lists[pos][idx] == value:
+                    self._delete(pos, idx)
+                    return
+                idx += 1
+            pos += 1
+            if pos < len(self._maxes) and self._maxes[pos - 1] != k:
+                break
 
     def remove(self, value: T) -> None:
         k = self._key(value)
-        idx = bisect.bisect_left(self._keys, k)
-        while idx < len(self._keys) and self._keys[idx] == k:
-            if self._list[idx] == value:
-                del self._keys[idx]
-                del self._list[idx]
-                return
-            idx += 1
+        if not self._maxes:
+            raise ValueError(f"{value!r} not in list")
+        pos = bisect.bisect_left(self._maxes, k)
+        if pos == len(self._maxes):
+            raise ValueError(f"{value!r} not in list")
+        while pos < len(self._maxes):
+            keys = self._key_lists[pos]
+            idx = bisect.bisect_left(keys, k)
+            while idx < len(keys) and keys[idx] == k:
+                if self._lists[pos][idx] == value:
+                    self._delete(pos, idx)
+                    return
+                idx += 1
+            pos += 1
+            if pos < len(self._maxes) and self._maxes[pos - 1] != k:
+                break
         raise ValueError(f"{value!r} not in list")
 
     def pop(self, index: int = -1) -> T:
+        if not self._len:
+            raise IndexError("pop from empty list")
         if index < 0:
-            index += len(self._list)
-        val = self._list.pop(index)
-        del self._keys[index]
-        return val
+            index += self._len
+        li, si = self._pos(index)
+        return self._delete(li, si)
 
     def clear(self) -> None:
-        self._keys.clear()
-        self._list.clear()
+        self._lists.clear()
+        self._key_lists.clear()
+        self._maxes.clear()
+        self._len = 0
+        self._index.clear()
 
     def update(self, iterable: Iterable[T]) -> None:
-        for v in iterable:
-            self.add(v)
+        values = list(iterable)
+        if not values:
+            return
+        values.sort(key=self._key)
+        if not self._maxes:
+            load = self._load
+            self._lists = [
+                values[i : i + load] for i in range(0, len(values), load)
+            ]
+            self._key_lists = [
+                [self._key(v) for v in sub] for sub in self._lists
+            ]
+            self._maxes = [keys[-1] for keys in self._key_lists]
+            self._len = len(values)
+            self._index.clear()
+        else:
+            for v in values:
+                self.add(v)
 
     # ---- Lookup ----
 
@@ -483,60 +603,93 @@ class SortedKeyList(Generic[T]):
             k = self._key(value)  # type: ignore[arg-type]
         except TypeError:
             return False
-        idx = bisect.bisect_left(self._keys, k)
-        while idx < len(self._keys) and self._keys[idx] == k:
-            if self._list[idx] == value:
-                return True
-            idx += 1
+        if not self._maxes:
+            return False
+        pos = bisect.bisect_left(self._maxes, k)
+        if pos == len(self._maxes):
+            return False
+        while pos < len(self._maxes):
+            keys = self._key_lists[pos]
+            idx = bisect.bisect_left(keys, k)
+            while idx < len(keys) and keys[idx] == k:
+                if self._lists[pos][idx] == value:
+                    return True
+                idx += 1
+            pos += 1
+            if pos < len(self._maxes) and self._maxes[pos - 1] != k:
+                break
         return False
 
     def __len__(self) -> int:
-        return len(self._list)
+        return self._len
 
     def __bool__(self) -> bool:
-        return len(self._list) > 0
+        return self._len > 0
 
     def __iter__(self) -> Iterator[T]:
-        return iter(self._list)
+        return chain.from_iterable(self._lists)
 
     def __reversed__(self) -> Iterator[T]:
-        return reversed(self._list)
+        for sub in reversed(self._lists):
+            yield from reversed(sub)
 
     @overload
     def __getitem__(self, index: int) -> T: ...
     @overload
     def __getitem__(self, index: slice) -> list[T]: ...
     def __getitem__(self, index: int | slice) -> T | list[T]:
-        return self._list[index]
+        if isinstance(index, slice):
+            start, stop, step = index.indices(self._len)
+            return [self[i] for i in range(start, stop, step)]
+        if index < 0:
+            index += self._len
+        li, si = self._pos(index)
+        return self._lists[li][si]
 
     @overload
     def __delitem__(self, index: int) -> None: ...
     @overload
     def __delitem__(self, index: slice) -> None: ...
     def __delitem__(self, index: int | slice) -> None:
-        del self._list[index]
         if isinstance(index, slice):
-            self._rebuild_keys()
-        else:
-            if index < 0:
-                index += len(self._keys)
-            del self._keys[index]
+            indices = range(*index.indices(self._len))
+            for i in sorted(indices, reverse=True):
+                self.pop(i)
+            return
+        if index < 0:
+            index += self._len
+        li, si = self._pos(index)
+        self._delete(li, si)
 
     def bisect_left(self, value: T) -> int:
         k = self._key(value)
-        return bisect.bisect_left(self._keys, k)
+        return self.bisect_key_left(k)
 
     def bisect_right(self, value: T) -> int:
         k = self._key(value)
-        return bisect.bisect_right(self._keys, k)
+        return self.bisect_key_right(k)
 
     bisect = bisect_right
 
     def bisect_key_left(self, key: Any) -> int:
-        return bisect.bisect_left(self._keys, key)
+        if not self._maxes:
+            return 0
+        pos = bisect.bisect_left(self._maxes, key)
+        if pos == len(self._maxes):
+            return self._len
+        keys = self._key_lists[pos]
+        idx = bisect.bisect_left(keys, key)
+        return self._offset(pos) + idx
 
     def bisect_key_right(self, key: Any) -> int:
-        return bisect.bisect_right(self._keys, key)
+        if not self._maxes:
+            return 0
+        pos = bisect.bisect_right(self._maxes, key)
+        if pos == len(self._maxes):
+            return self._len
+        keys = self._key_lists[pos]
+        idx = bisect.bisect_right(keys, key)
+        return self._offset(pos) + idx
 
     def index(
         self,
@@ -547,20 +700,16 @@ class SortedKeyList(Generic[T]):
         if start is None:
             start = 0
         if stop is None:
-            stop = len(self._list)
-        k = self._key(value)
-        idx = bisect.bisect_left(self._keys, k)
-        while idx < stop and self._keys[idx] == k:
-            if idx >= start and self._list[idx] == value:
-                return idx
-            idx += 1
+            stop = self._len
+        bl = self.bisect_left(value)
+        if bl < stop and bl >= start and bl < self._len and self[bl] == value:
+            return bl
         raise ValueError(f"{value!r} is not in list")
 
     def count(self, value: T) -> int:
-        k = self._key(value)
-        left = bisect.bisect_left(self._keys, k)
-        right = bisect.bisect_right(self._keys, k)
-        return sum(1 for i in range(left, right) if self._list[i] == value)
+        left = self.bisect_left(value)
+        right = self.bisect_right(value)
+        return sum(1 for i in range(left, right) if self[i] == value)
 
     # ---- Range iteration ----
 
@@ -576,15 +725,15 @@ class SortedKeyList(Generic[T]):
             start = 0
         else:
             mk = self._key(minimum)
-            start = bisect.bisect_left(self._keys, mk) if inc_min else bisect.bisect_right(self._keys, mk)
+            start = self.bisect_key_left(mk) if inc_min else self.bisect_key_right(mk)
         if maximum is None:
-            stop = len(self._list)
+            stop = self._len
         else:
             mk = self._key(maximum)
-            stop = bisect.bisect_right(self._keys, mk) if inc_max else bisect.bisect_left(self._keys, mk)
+            stop = self.bisect_key_right(mk) if inc_max else self.bisect_key_left(mk)
         rng = range(stop - 1, start - 1, -1) if reverse else range(start, stop)
         for i in rng:
-            yield self._list[i]
+            yield self[i]
 
     def irange_key(
         self,
@@ -598,18 +747,18 @@ class SortedKeyList(Generic[T]):
         if min_key is None:
             start = 0
         elif inc_min:
-            start = bisect.bisect_left(self._keys, min_key)
+            start = self.bisect_key_left(min_key)
         else:
-            start = bisect.bisect_right(self._keys, min_key)
+            start = self.bisect_key_right(min_key)
         if max_key is None:
-            stop = len(self._list)
+            stop = self._len
         elif inc_max:
-            stop = bisect.bisect_right(self._keys, max_key)
+            stop = self.bisect_key_right(max_key)
         else:
-            stop = bisect.bisect_left(self._keys, max_key)
+            stop = self.bisect_key_left(max_key)
         rng = range(stop - 1, start - 1, -1) if reverse else range(start, stop)
         for i in rng:
-            yield self._list[i]
+            yield self[i]
 
     def islice(
         self,
@@ -617,24 +766,23 @@ class SortedKeyList(Generic[T]):
         stop: int | None = None,
         reverse: bool = False,
     ) -> Iterator[T]:
-        n = len(self._list)
-        s = 0 if start is None else (start + n if start < 0 else start)
-        e = n if stop is None else (stop + n if stop < 0 else stop)
+        s = 0 if start is None else (start + self._len if start < 0 else start)
+        e = self._len if stop is None else (stop + self._len if stop < 0 else stop)
         s = max(s, 0)
-        e = min(e, n)
+        e = min(e, self._len)
         rng = range(e - 1, s - 1, -1) if reverse else range(s, e)
         for i in rng:
-            yield self._list[i]
+            yield self[i]
 
     # ---- Representation ----
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, SortedKeyList):
-            return self._list == other._list
+            return list(self) == list(other)
         return NotImplemented
 
     def __repr__(self) -> str:
-        return f"SortedKeyList({self._list!r}, key={self._key!r})"
+        return f"SortedKeyList({list(self)!r}, key={self._key!r})"
 
     def copy(self) -> SortedKeyList[T]:
-        return SortedKeyList(self._list, key=self._key)
+        return SortedKeyList(self, key=self._key, _load=self._load)
