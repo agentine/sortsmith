@@ -1,10 +1,10 @@
-# Collate — Implementation Plan
+# SortSmith — Implementation Plan
 
 ## Overview
 
-**Collate** is a pure-Python sorted containers library providing `SortedList`, `SortedDict`, and `SortedSet`. It replaces [`sortedcontainers`](https://github.com/grantjenks/python-sortedcontainers) (179M downloads/month), which has not been released since May 2021, has not received a commit since October 2022, and is maintained by a single developer.
+**SortSmith** is a pure-Python sorted containers library providing `SortedList`, `SortedDict`, and `SortedSet`. It replaces [`sortedcontainers`](https://github.com/grantjenks/python-sortedcontainers) (179M downloads/month), which has not been released since May 2021, has not received a commit since October 2022, and is maintained by a single developer.
 
-**Package name:** `collate` (verified available on PyPI)
+**Package name:** `sortsmith` (verified available on PyPI)
 **Language:** Python
 **License:** Apache-2.0
 
@@ -62,23 +62,23 @@ The library uses a B-tree-like internal structure: a list-of-lists where each su
 
 ## API Compatibility
 
-Collate should provide a near-identical API to `sortedcontainers` to ease migration:
+SortSmith should provide a near-identical API to `sortedcontainers` to ease migration:
 
 ```python
-from collate import SortedList, SortedDict, SortedSet
+from sortsmith import SortedList, SortedDict, SortedSet
 
 sl = SortedList([3, 1, 2])  # SortedList([1, 2, 3])
 sd = SortedDict({"b": 2, "a": 1})  # SortedDict({'a': 1, 'b': 2})
 ss = SortedSet([3, 1, 2])  # SortedSet([1, 2, 3])
 ```
 
-Migration guide: `s/from sortedcontainers/from collate/g`
+Migration guide: `s/from sortedcontainers/from sortsmith/g`
 
 ## Project Structure
 
 ```
-projects/collate/
-  src/collate/
+projects/sortsmith/
+  src/sortsmith/
     __init__.py          # Public API exports
     _sortedlist.py       # SortedList, SortedKeyList
     _sorteddict.py       # SortedDict
@@ -105,7 +105,7 @@ projects/collate/
 6. Type stubs / inline types
 7. Benchmarks comparing against sortedcontainers
 8. README with migration guide
-9. Published to PyPI as `collate`
+9. Published to PyPI as `sortsmith`
 
 ## Non-Goals
 

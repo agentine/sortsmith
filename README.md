@@ -1,8 +1,8 @@
-# collate
+# sortsmith
 
-[![CI](https://github.com/agentine/collate/actions/workflows/ci.yml/badge.svg)](https://github.com/agentine/collate/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/collate)](https://pypi.org/project/collate/)
-[![Python](https://img.shields.io/pypi/pyversions/collate)](https://pypi.org/project/collate/)
+[![CI](https://github.com/agentine/sortsmith/actions/workflows/ci.yml/badge.svg)](https://github.com/agentine/sortsmith/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/sortsmith)](https://pypi.org/project/sortsmith/)
+[![Python](https://img.shields.io/pypi/pyversions/sortsmith)](https://pypi.org/project/sortsmith/)
 
 Pure-Python sorted containers — `SortedList`, `SortedDict`, `SortedSet`, `SortedKeyList`.
 
@@ -11,13 +11,13 @@ Drop-in replacement for [sortedcontainers](https://github.com/grantjenks/python-
 ## Installation
 
 ```bash
-pip install collate
+pip install sortsmith
 ```
 
 ## Quick Start
 
 ```python
-from collate import SortedList, SortedDict, SortedSet
+from sortsmith import SortedList, SortedDict, SortedSet
 
 sl = SortedList([3, 1, 2])    # SortedList([1, 2, 3])
 sd = SortedDict(b=2, a=1)     # SortedDict({'a': 1, 'b': 2})
@@ -31,7 +31,7 @@ ss = SortedSet([3, 1, 2])     # SortedSet([1, 2, 3])
 A list that maintains elements in sorted order using a segmented list-of-lists structure — O(log n) insertion/deletion, O(1) amortized indexed access.
 
 ```python
-from collate import SortedList
+from sortsmith import SortedList
 
 sl = SortedList([5, 1, 3])
 # SortedList([1, 3, 5])
@@ -92,7 +92,7 @@ sl * 2          # New SortedList with elements repeated twice
 Like `SortedList` but ordered by a key function. Elements are stored as-is; only ordering uses the key.
 
 ```python
-from collate import SortedKeyList
+from sortsmith import SortedKeyList
 
 skl = SortedKeyList(["banana", "apple", "cherry"], key=len)
 # Ordered by string length: ['apple', 'banana', 'cherry']
@@ -116,7 +116,7 @@ skl = SortedKeyList(["banana", "apple", "cherry"], key=str.lower)
 A `dict` subclass whose keys are kept in sorted order. All dict operations are supported; keys/values/items views iterate in sorted key order.
 
 ```python
-from collate import SortedDict
+from sortsmith import SortedDict
 
 sd = SortedDict({"c": 3, "a": 1, "b": 2})
 # SortedDict({'a': 1, 'b': 2, 'c': 3})
@@ -172,7 +172,7 @@ list(sd.keys())  # ['apple', 'Banana', 'Cherry']
 A set that maintains elements in sorted order. Backed by a `set` (O(1) membership) and a `SortedList` (for ordering and range queries).
 
 ```python
-from collate import SortedSet
+from sortsmith import SortedSet
 
 ss = SortedSet([3, 1, 4, 1, 5])
 # SortedSet([1, 3, 4, 5]) — duplicates removed, sorted
@@ -248,14 +248,14 @@ All four classes use a **segmented list** (list-of-lists) data structure with a 
 from sortedcontainers import SortedList, SortedDict, SortedSet
 
 # After
-from collate import SortedList, SortedDict, SortedSet
+from sortsmith import SortedList, SortedDict, SortedSet
 ```
 
 The API is identical. A global search-and-replace is all that's needed.
 
 **Improvements over sortedcontainers:**
 
-| Feature | sortedcontainers | collate |
+| Feature | sortedcontainers | sortsmith |
 |---------|-----------------|---------|
 | Last release | May 2021 | Active |
 | Python support | 3.7–3.12 | 3.10+ |

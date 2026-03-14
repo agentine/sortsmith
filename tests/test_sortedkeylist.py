@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from collate import SortedKeyList
+from sortsmith import SortedKeyList
 
 
 class TestInit:

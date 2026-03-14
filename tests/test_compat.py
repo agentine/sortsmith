@@ -6,7 +6,7 @@ import pytest
 
 sc = pytest.importorskip("sortedcontainers")
 
-from collate import SortedDict, SortedList, SortedSet  # noqa: E402
+from sortsmith import SortedDict, SortedList, SortedSet  # noqa: E402
 
 
 class TestSortedListCompat:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from collate import SortedDict
+from sortsmith import SortedDict
 
 
 class TestInit:

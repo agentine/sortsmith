@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from collate import SortedSet
+from sortsmith import SortedSet
 
 
 class TestInit:

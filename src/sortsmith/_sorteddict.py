@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any, Callable, Generic, TypeVar, overload
 
-from collate._sortedlist import SortedKeyList, SortedList, _SupportsLT
+from sortsmith._sortedlist import SortedKeyList, SortedList, _SupportsLT
 
 K = TypeVar("K", bound=_SupportsLT)
 V = TypeVar("V")

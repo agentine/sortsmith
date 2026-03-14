@@ -1,4 +1,4 @@
-"""Benchmarks: collate.SortedDict vs sortedcontainers.SortedDict."""
+"""Benchmarks: sortsmith.SortedDict vs sortedcontainers.SortedDict."""
 
 from __future__ import annotations
 
@@ -19,18 +19,18 @@ def rand_keys(n: int) -> list[str]:
     return ["".join(rng.choices(string.ascii_lowercase, k=8)) for _ in range(n)]
 
 
-def bench(label: str, collate_fn: Any, sc_fn: Any | None, number: int = 3) -> None:
-    c_time = timeit.timeit(collate_fn, number=number)
+def bench(label: str, sortsmith_fn: Any, sc_fn: Any | None, number: int = 3) -> None:
+    c_time = timeit.timeit(sortsmith_fn, number=number)
     if sc_fn is not None:
         s_time = timeit.timeit(sc_fn, number=number)
         ratio = c_time / s_time if s_time > 0 else float("inf")
-        print(f"  {label:40s}  collate={c_time:.4f}s  sc={s_time:.4f}s  ratio={ratio:.2f}x")
+        print(f"  {label:40s}  sortsmith={c_time:.4f}s  sc={s_time:.4f}s  ratio={ratio:.2f}x")
     else:
-        print(f"  {label:40s}  collate={c_time:.4f}s  sc=N/A")
+        print(f"  {label:40s}  sortsmith={c_time:.4f}s  sc=N/A")
 
 
 def run_benchmarks() -> None:
-    from collate import SortedDict as CDict
+    from sortsmith import SortedDict as CDict
 
     SCDict: type | None = None
     if HAS_SC:
@@ -95,6 +95,6 @@ def run_benchmarks() -> None:
 
 
 if __name__ == "__main__":
-    print("SortedDict Benchmarks: collate vs sortedcontainers")
+    print("SortedDict Benchmarks: sortsmith vs sortedcontainers")
     print("=" * 70)
     run_benchmarks()
