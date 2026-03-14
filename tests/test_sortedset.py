@@ -271,3 +271,44 @@ class TestClear:
         ss = SortedSet([1, 2, 3])
         ss.clear()
         assert len(ss) == 0
+
+
+class TestKeyFunction:
+    def test_key_ordering(self) -> None:
+        ss: SortedSet[int] = SortedSet([1, 3, 2], key=lambda x: -x)
+        assert list(ss) == [3, 2, 1]
+
+    def test_key_add(self) -> None:
+        ss: SortedSet[int] = SortedSet(key=lambda x: -x)
+        ss.add(1)
+        ss.add(3)
+        ss.add(2)
+        assert list(ss) == [3, 2, 1]
+
+    def test_key_preserved_in_copy(self) -> None:
+        ss: SortedSet[int] = SortedSet([1, 3, 2], key=lambda x: -x)
+        ss2 = ss.copy()
+        assert ss2._key is not None
+        assert list(ss2) == [3, 2, 1]
+        ss2.add(4)
+        assert list(ss2) == [4, 3, 2, 1]
+
+    def test_key_preserved_in_union(self) -> None:
+        ss: SortedSet[int] = SortedSet([1, 3], key=lambda x: -x)
+        result = ss | SortedSet([2, 4])
+        assert list(result) == [4, 3, 2, 1]
+
+    def test_key_preserved_in_intersection(self) -> None:
+        ss: SortedSet[int] = SortedSet([1, 2, 3], key=lambda x: -x)
+        result = ss & SortedSet([2, 3, 4])
+        assert list(result) == [3, 2]
+
+    def test_key_preserved_in_difference(self) -> None:
+        ss: SortedSet[int] = SortedSet([1, 2, 3], key=lambda x: -x)
+        result = ss - SortedSet([2])
+        assert list(result) == [3, 1]
+
+    def test_no_key(self) -> None:
+        ss = SortedSet([3, 1, 2])
+        assert ss._key is None
+        assert list(ss) == [1, 2, 3]

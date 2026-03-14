@@ -236,3 +236,39 @@ class TestEquality:
     def test_ne_dict(self) -> None:
         sd = SortedDict({"a": 1})
         assert sd != {"a": 1, "b": 2}
+
+
+class TestKeyFunction:
+    def test_key_function_ordering(self) -> None:
+        sd: SortedDict[int, str] = SortedDict(lambda k: -k, {1: "a", 3: "c", 2: "b"})
+        assert list(sd.keys()) == [3, 2, 1]
+
+    def test_key_function_setitem(self) -> None:
+        sd: SortedDict[int, str] = SortedDict(lambda k: -k)
+        sd[1] = "a"
+        sd[3] = "c"
+        sd[2] = "b"
+        assert list(sd.keys()) == [3, 2, 1]
+
+    def test_key_property(self) -> None:
+        key_fn = lambda k: -k
+        sd: SortedDict[int, str] = SortedDict(key_fn, {1: "a"})
+        assert sd.key is key_fn
+
+    def test_no_key_property(self) -> None:
+        sd: SortedDict[str, int] = SortedDict({"a": 1})
+        assert sd.key is None
+
+    def test_copy_preserves_key(self) -> None:
+        sd: SortedDict[int, str] = SortedDict(lambda k: -k, {1: "a", 3: "c", 2: "b"})
+        sd2 = sd.copy()
+        assert sd2.key is not None
+        assert list(sd2.keys()) == [3, 2, 1]
+        sd2[4] = "d"
+        assert list(sd2.keys()) == [4, 3, 2, 1]
+
+    def test_copy_without_key(self) -> None:
+        sd = SortedDict({"c": 3, "a": 1})
+        sd2 = sd.copy()
+        assert sd2.key is None
+        assert list(sd2.keys()) == ["a", "c"]

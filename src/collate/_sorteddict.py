@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any, Callable, Generic, TypeVar, overload
 
-from collate._sortedlist import SortedList, _SupportsLT
+from collate._sortedlist import SortedKeyList, SortedList, _SupportsLT
 
 K = TypeVar("K", bound=_SupportsLT)
 V = TypeVar("V")
@@ -33,7 +33,7 @@ class _IlocProxy(Generic[K, V]):
 class SortedDict(dict[K, V]):
     """A dict subclass whose keys are kept in sorted order."""
 
-    _keys: SortedList[K]
+    _keys: SortedList[K] | SortedKeyList[K]
     _key_func: Callable[[K], Any] | None
 
     def __init__(
@@ -54,10 +54,12 @@ class SortedDict(dict[K, V]):
             mapping_args = (__key_or_mapping, *args)
 
         self._key_func = key_func
-        self._keys = SortedList[K]()
         super().__init__(*mapping_args, **mapping_kw)
         # Build _keys from whatever dict.__init__ put in.
-        self._keys = SortedList(super().keys())
+        if key_func is not None:
+            self._keys = SortedKeyList(super().keys(), key=key_func)
+        else:
+            self._keys = SortedList(super().keys())
 
     @property
     def key(self) -> Callable[[K], Any] | None:
@@ -153,6 +155,8 @@ class SortedDict(dict[K, V]):
         return f"SortedDict({{{items}}})"
 
     def copy(self) -> SortedDict[K, V]:
+        if self._key_func is not None:
+            return SortedDict(self._key_func, dict(self))
         return SortedDict(dict(self))
 
     def __or__(self, other: dict[K, V]) -> SortedDict[K, V]:  # type: ignore[override]

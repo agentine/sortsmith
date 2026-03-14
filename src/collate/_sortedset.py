@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from typing import Any, Callable, Generic, TypeVar, overload
 
-from collate._sortedlist import SortedList, _SupportsLT
+from collate._sortedlist import SortedKeyList, SortedList, _SupportsLT
 
 T = TypeVar("T", bound=_SupportsLT)
 
@@ -26,7 +26,9 @@ class SortedSet(Generic[T]):
     ) -> None:
         self._key = key
         self._set: set[T] = set()
-        self._list: SortedList[T] = SortedList()
+        self._list: SortedList[T] | SortedKeyList[T] = (
+            SortedKeyList(key=key) if key is not None else SortedList()
+        )
         if iterable is not None:
             self.update(iterable)
 
@@ -121,7 +123,7 @@ class SortedSet(Generic[T]):
     # ---- Set operations ----
 
     def __or__(self, other: SortedSet[T] | set[T]) -> SortedSet[T]:
-        result: SortedSet[T] = SortedSet(self._set | (other._set if isinstance(other, SortedSet) else other))
+        result: SortedSet[T] = SortedSet(self._set | (other._set if isinstance(other, SortedSet) else other), key=self._key)
         return result
 
     def __ior__(self, other: Iterable[T]) -> SortedSet[T]:
@@ -130,7 +132,7 @@ class SortedSet(Generic[T]):
 
     def __and__(self, other: SortedSet[T] | set[T]) -> SortedSet[T]:
         other_set = other._set if isinstance(other, SortedSet) else other
-        return SortedSet(self._set & other_set)
+        return SortedSet(self._set & other_set, key=self._key)
 
     def __iand__(self, other: Iterable[T]) -> SortedSet[T]:
         other_set = set(other)
@@ -141,7 +143,7 @@ class SortedSet(Generic[T]):
 
     def __sub__(self, other: SortedSet[T] | set[T]) -> SortedSet[T]:
         other_set = other._set if isinstance(other, SortedSet) else other
-        return SortedSet(self._set - other_set)
+        return SortedSet(self._set - other_set, key=self._key)
 
     def __isub__(self, other: Iterable[T]) -> SortedSet[T]:
         for v in other:
@@ -150,7 +152,7 @@ class SortedSet(Generic[T]):
 
     def __xor__(self, other: SortedSet[T] | set[T]) -> SortedSet[T]:
         other_set = other._set if isinstance(other, SortedSet) else other
-        return SortedSet(self._set ^ other_set)
+        return SortedSet(self._set ^ other_set, key=self._key)
 
     def __ixor__(self, other: Iterable[T]) -> SortedSet[T]:
         other_set = set(other)
@@ -199,4 +201,4 @@ class SortedSet(Generic[T]):
         return f"SortedSet({list(self._list)!r})"
 
     def copy(self) -> SortedSet[T]:
-        return SortedSet(self._set)
+        return SortedSet(self._set, key=self._key)
