@@ -124,6 +124,10 @@ sd = SortedDict({"c": 3, "a": 1, "b": 2})
 list(sd.keys())    # ['a', 'b', 'c']
 list(sd.values())  # [1, 2, 3]
 list(sd.items())   # [('a', 1), ('b', 2), ('c', 3)]
+
+# Direct iteration and reversed() also follow sorted key order
+list(sd)           # ['a', 'b', 'c']
+list(reversed(sd)) # ['c', 'b', 'a']
 ```
 
 **Positional access**
